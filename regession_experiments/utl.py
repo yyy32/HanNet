@@ -1,56 +1,84 @@
 # -*- coding: utf-8 -*-
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset
 import math
+import pandas as pd
+import random
+from ann import ABS,HouseholderLayer
 
-def modelparameter(model):
-    return  sum([param.nelement() for param in model.parameters()])
+
+################### test function ##################
+def test(model,X,Y0,criterion):
+    model.eval()
+    Yc = model(X)
+    n = Yc.size(0)
+    loss = criterion(Y0, Yc).detach().sqrt().item()
+    return loss
+
+
+
+################### train function ##################
+def train(model,lr,Xtrain,Ytrain,Xtest,Ytest,maxiter,
+          criterion,optimizer,scheduler,model_name,batch_size,outputwriter,interval=100,target='test'):
+    model.train()
+    best_trainloss = 1000000. 
+    best_testloss = 1000000. 
+
+    train_range = [i for i in range(Xtrain.size(0))]
+    for iter in range(maxiter):
+        loss = 0.
+        model.train()
+        batch_index = random.sample(train_range,batch_size)
+
+        inputs = Xtrain[batch_index,:]
+        if Ytrain.ndim ==1:
+            labels = Ytrain[batch_index].long()
+        else:
+            labels = Ytrain[batch_index,:]
+        optimizer.zero_grad()
+        output = model(inputs)
+
+        loss = criterion(output, labels)
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+        
+        if iter % interval == 0:
+            trainloss = test(model,Xtrain,Ytrain,criterion)
+            testloss = test(model,Xtest,Ytest,criterion)
+            print(iter,'train loss %9.8f'% trainloss,
+                 'test loss %7.6f'% testloss)  
+            print(iter,'train loss %9.8f'% trainloss,
+                'test loss %7.6f'% testloss,file=outputwriter)  
+
+            if best_trainloss > trainloss and target.startswith('train'):
+                best_trainloss = trainloss
+                best_testloss = testloss
+                torch.save(model.state_dict(), model_name+'.pkl')
+
+            elif best_testloss > testloss and target.startswith('test'):
+                best_trainloss = trainloss
+                best_testloss = testloss
+                torch.save(model.state_dict(), model_name+'.pkl')
                 
-# ###################Absolute as an activation function##################
-
-class ABS(nn.Module):
-    def __init__(self,inplace=True):
-        super(ABS, self).__init__()
-        self.inplace = inplace
-    def forward(self, x):
-        if self.inplace:
-            return x.abs_()
-        else:
-            return x.abs()
+ 
+        if np.isnan(trainloss):
+            print('Warning: train loss is NaN.')
+            return 1000000.,1000000.
+    print('learning rate %4.3f' %lr,
+          'best train loss %9.8f'% best_trainloss,
+          'best test loss %7.6f'%best_testloss)
+    return best_trainloss,best_testloss
 
 
-class HouseholderLayer(nn.Module):
-    def __init__(self, input_features, bias=True):
-        super(HouseholderLayer, self).__init__()
-        self.input_features = input_features
 
-        self.vector = nn.Parameter(torch.Tensor(input_features, 1))
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(input_features))
-            bound = 1 / math.sqrt(input_features)
-
-            nn.init.uniform_(self.bias, -bound, bound)
-        else:
-            self.register_parameter('bias', None)
-        self.register_buffer('I', torch.eye(input_features))
-        self.eps = 1e-14
-    def forward(self, input):
-        self.normedvector = self.vector/(self.vector.pow(2).sum().sqrt()+self.eps)
-        self.weight = self.I- 2*(self.normedvector*self.normedvector.t())
-
-        output = input.mm(self.weight)
-        if self.bias is not None:
-            output += self.bias.unsqueeze(0).expand_as(output)
-        return output
-
-    def extra_repr(self):
-        return 'input_features={}, bias={}'.format(
-            self.input_features, self.bias is not None
-        )
-
-###################Spliting train and test data##################
+###################  train and test data set spliting ##################
 def datasplit(X0,Y0,rho=0.25):
     Dataset = TensorDataset(X0,Y0)
     train_size = int(len(Dataset) * rho)
@@ -72,6 +100,6 @@ def datasplit(X0,Y0,rho=0.25):
     return Xtrain,Ytrain,Xtest,Ytest
 
 
-
-
-
+####################################################
+def modelparameter(model):
+    return sum([param.nelement() for param in model.parameters() ])
