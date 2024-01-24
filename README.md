@@ -31,3 +31,18 @@ python main.py --model hannet --prob elevators  --depth 20 --width 100
 python main.py --model fcnet --prob elevators --depth 6 --width 100 
 ```
 
+## Experiments on Image Datasets
+
+Please save data in the `../data/` directory
+```
+pip install randaugment
+cd regession_experiments/
+```
+To train MLP/Han-Mixer and ResNet in the paper on Cifar10 dataset, run this command:
+```
+python train.py --dataset cifar10  --batch-size 256 --epoch 600 --optim adam --lr 0.001 --model hanmixer --channel 256 --mixerblock 4 --hanblock 0 
+
+python train.py --dataset cifar10  --batch-size 256 --epoch 600 --optim adam --lr 0.001 --model hanmixer --channel 256 --mixerblock 4 --hanblock 12
+
+python train.py --dataset cifar10  --batch-size 256 --epoch 600 --optim adam --lr 0.001 --model resnet32 
+```
