@@ -62,9 +62,13 @@ python train-mobilevit.py --dataset cifar10  --batch-size 128 --epoch 300 --opti
 
 ## Citations
 ```
-@article{yu4466302lightweight,
-  title={A Lightweight and Gradient-Stable Neural Layer},
+@article{yu2024lightweight,
+  title={A lightweight and gradient-stable neural layer},
   author={Yu, Yueyao and Zhang, Yin},
-  journal={Available at SSRN 4466302}
+  journal={Neural Networks},
+  volume={175},
+  pages={106269},
+  year={2024},
+  publisher={Elsevier}
 }
 ```
